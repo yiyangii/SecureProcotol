@@ -61,6 +61,17 @@ public class ChatClient {
 
 
         while (true) {
+            // Print instructions to the user on how to use the client
+            System.out.println(
+                    "Welcome to the Chat Client! Here are the available commands:\n" +
+                    " 'send': To send a message. You will be asked to enter the type of the message (private/group), the receiver of the message, and your message.\n" +
+                    " 'disconnect': To disconnect from the server.\n" +
+                    " 'createGroup': To create a new group. You will be asked to enter the name of the group.\n" +
+                    " 'addMember': To add a member to a group. You will be asked to enter the group name and the username of the member to add.\n" +
+                    " 'removeMember': To remove a member from a group. You will be asked to enter the group name and the username of the member to remove.\n" +
+                    " 'exit': To quit the program.\n" +
+                    " Please note: If you're inactive for more than 10 seconds, the heartbeat will stop and you'll have to enter a new command to restart it.");
+
             // If more than 10 seconds have passed since the last input, stop the heartbeat
             if (isHeartbeatOn && System.currentTimeMillis() - lastInputTime > 10_000) {
                 stopHeartbeat();
