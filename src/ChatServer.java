@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.SQLOutput;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,32 +18,9 @@ public class ChatServer {
     private Map<String, List<ChatClientHandler>> groups;
 
     private Map<String, Long> lastHeartbeat;
-    private enum State {
-        WAITING_FOR_CONNECTION,
-        AUTHENTICATING,
-        AUTHENTICATED,
-        IDLE,
-        SENDING_MESSAGE,
-        CREATING_GROUP,
-        DISCONNECTED
-    }
 
-    private enum Event {
-        CONNECT_REQUEST,
-        CONNECT_ACK,
-        AUTH_REQUEST,
-        AUTH_ACK,
-        AUTH_NACK,
-        SEND_MESSAGE,
-        RECEIVE_MESSAGE,
-        CREATE_GROUP,
-        GROUP_ACK,
-        GROUP_NACK,
-        DISCONNECT,
-        DISCONNECT_ACK
-    }
 
-    private State currentState;
+    //private int currentState;
     public ChatServer(int port) throws IOException {
         serverSocket = new ServerSocket(port);
         activeSessions = new ConcurrentHashMap<>();
@@ -51,17 +29,17 @@ public class ChatServer {
 
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(this::checkHeartbeat, 0, 1, TimeUnit.MINUTES);
-        currentState = State.WAITING_FOR_CONNECTION;
+        //currentState = Message.STATE_WAITING_FOR_CONNECTION;
 
     }
 
 
 
     public void start() throws IOException {
-        System.out.println("Waiting for clients...");
+        System.out.println("[LOG]:Waiting for clients...");
         while (true) {
             Socket clientSocket = serverSocket.accept();
-            System.out.println("Client connected!");
+            System.out.println("[LOG]:Client connected!");
 
             ChatClientHandler handler = new ChatClientHandler(clientSocket, this);
             new Thread(() -> {
@@ -69,7 +47,7 @@ public class ChatServer {
                     String inputLine;
                     while ((inputLine = handler.receiveMessage().serialize()) != null) {
                         Message msg = Message.deserialize(inputLine);
-                        System.out.println("Received: " + msg.toString());
+                        System.out.println("[Received MESSAGE]: " + msg.toString());
                         handleMessage(handler, msg);
                     }
                 } catch (IOException e) {
@@ -82,10 +60,42 @@ public class ChatServer {
     }
 
     public synchronized void handleMessage(ChatClientHandler handler, Message msg) throws Exception {
-        System.out.println(msg.getPayload());
+        if (msg.getVersion() != handler.getClientState() && msg.getType() != Message.HEARTBEAT) {
+            System.out.println("[LOG][Version mismatch: Message version is " + msg.getVersion()
+                    + ", but current server state is " + handler.getClientState() + "]");
+
+            // Send an error message to the client
+            Message errorMsg = new Message(handler.getClientState(), Message.ERROR_VERSION_MISMATCH, 0, "Version mismatch: Message version is " + msg.getVersion()
+                    + ", but current server state is " + handler.getClientState());
+            handler.sendMessage(errorMsg);
+
+            // Send a close connection message to the client
+            Message closeMsg = new Message(handler.getClientState(), Message.CLOSE_CONNECTION, 0, "Closing connection due to version mismatch");
+            handler.sendMessage(closeMsg);
+
+            // Close the connection
+            handler.closeConnection();
+
+            // Remove this session
+            String username = getUsername(handler);
+            if (username != null) {
+                activeSessions.remove(username);
+                lastHeartbeat.remove(username);
+                System.out.println("[LOG][Closed connection with user " + username + " due to version mismatch.]");
+            }
+
+            return;
+        }
+
         switch (msg.getType()) {
-            case Message.CONNECT:
+            case Message.CONNECT_REQUEST:
                 handleConnectRequest(handler, msg.getPayload());
+                break;
+            case Message.AUTH_REQUEST:
+                handleAuthRequest(handler,msg.getPayload());
+                break;
+            case Message.AUTH_SUCCESS:
+                handleAUTHSUCCESSRequest(handler,msg.getPayload());
                 break;
             case Message.DISCONNECT:
                 handleDisconnect(handler);
@@ -105,16 +115,26 @@ public class ChatServer {
             case Message.HEARTBEAT:
                 handleHeartbeat(handler, msg.getPayload());
                 break;
+            case Message.CHANGE_STATE:
+                handleChangeStateRequest(handler,msg.getPayload());
+                break;
+
             default:
                 throw new IllegalArgumentException("Unknown message type: " + msg.getType());
         }
     }
 
-    private void handleConnectRequest(ChatClientHandler handler, String payload) throws Exception {
+    private void handleChangeStateRequest(ChatClientHandler handler, String payload){
+        handler.setClientState(Integer.valueOf(payload));
+        System.out.println(handler.getClientState());
+        System.out.println("[LOG][STATE change to" + Integer.valueOf(payload) +"]");
+
+    }
+    private void handleAuthRequest(ChatClientHandler handler, String payload){
         String[] credentials = payload.split("\\|", -1);
 
         if (credentials.length != 2) {
-            System.out.println("Invalid payload format.");
+            System.out.println("[LOG]:Invalid payload format.");
             return;
         }
 
@@ -143,21 +163,26 @@ public class ChatServer {
             }
 
             if (isAuthenticated) {
-                System.out.println("[Log][User " + username + " authenticated successfully.]");
+
+                handler.setClientState(Message.STATE_AUTHENTICATED);
+                System.out.println("[Log][User " + username + " authenticated successfully.STATE change to STATE_AUTHENTICATED]");
 
                 // Create a new Message object to inform the client about successful authentication
-                Message authSuccessMsg = new Message(1, Message.AUTH_ACK, 0, "Authentication successful");
+                Message authSuccessMsg = new Message(Message.STATE_AUTHENTICATED, Message.AUTH_ACK, 0, "Authentication successful");
 
                 authSuccessMsg.setType(Message.AUTH_ACK);
                 authSuccessMsg.setPayload("[Log][Authentication successful for user: " + username + "]");
 
                 // Send the message to the client
                 handler.sendMessage(authSuccessMsg);
+
             } else {
+                handler.setClientState(Message.STATE_WAITING_FOR_CONNECTION);
+                //currentState = Message.STATE_WAITING_FOR_CONNECTION;
                 System.out.println("[Log][Authentication failed for user " + username + "]");
 
                 // Create a new Message object to inform the client about failed authentication
-                Message authFailureMsg = new Message(1, Message.AUTH_NACK, 0, "Authentication failure");
+                Message authFailureMsg = new Message(Message.AUTH_FAILURE, Message.AUTH_NACK, 0, "Authentication failure");
                 authFailureMsg.setType(Message.AUTH_NACK);
                 authFailureMsg.setPayload("[Log][Authentication failed for user: " + username + "]");
 
@@ -169,7 +194,32 @@ public class ChatServer {
         }
     }
 
+
+    private void handleConnectRequest(ChatClientHandler handler, String payload) throws Exception {
+        handler.setClientState(Message.STATE_AUTHENTICATING);
+
+        //currentState = Message.STATE_AUTHENTICATING;
+        Message connectAckMsg = new Message(Message.STATE_AUTHENTICATING, Message.CONNECT_ACK,0, "Connection request accepted");
+        System.out.println("[LOG][STATE_AUTHENTICATING]");
+        handler.sendMessage(connectAckMsg);
+
+    }
+
+    private void handleAUTHSUCCESSRequest(ChatClientHandler handler, String payload) throws Exception {
+        handler.setClientState(Message.STATE_IDLE);
+
+        //currentState = Message.STATE_IDLE;
+        System.out.println("[LOG][STATE CHANGE TO IDLE]");
+
+
+    }
+
     private void handleDisconnect(ChatClientHandler handler) throws Exception {
+        System.out.println("[LOG][STATE_WAITING_FOR_CONNECTION]");
+
+        handler.setClientState(Message.STATE_WAITING_FOR_CONNECTION);
+        //currentState = Message.STATE_WAITING_FOR_CONNECTION;
+
         String username = getUsername(handler);
         if (username != null) {
             activeSessions.remove(username);
@@ -182,14 +232,22 @@ public class ChatServer {
         } else {
             System.out.println("No active session found for the client.");
         }
+
     }
 
     private void handleSendMessage(ChatClientHandler handler, String payload) throws Exception {
+
+
         String[] parts = payload.split("\\|", -1);
         String sender = parts[0];
         String messageType = parts[1];
         String receiver = parts[2];
         String message = parts[3];
+
+        handler.setClientState(Message.STATE_IDLE);
+        System.out.println("[LOG][STATE TO IDLE]");
+
+        //currentState = Message.STATE_IDLE;
 
         switch (messageType) {
             case "private":
@@ -197,7 +255,7 @@ public class ChatServer {
                 if (recipientHandler != null) {
                     Message newMsg = new Message(1, Message.RECEIVE_MESSAGE, 0, sender + "|" + message);
                     recipientHandler.sendMessage(newMsg);
-                    System.out.println("Message sent to " + receiver + ": " + message);
+                    System.out.println("[LOG]: Message sent to " + receiver + ": " + message);
                 }
                 break;
             case "group":
@@ -206,16 +264,22 @@ public class ChatServer {
                     for (ChatClientHandler memberHandler : groupMembers) {
                         Message newMsg = new Message(1, Message.RECEIVE_MESSAGE, 0, sender + "|" + message);
                         memberHandler.sendMessage(newMsg);
-                        System.out.println("Message sent to group " + receiver + ": " + message);
+                        System.out.println("[LOG]: Message sent to group " + receiver + ": " + message);
                     }
                 }
                 break;
             default:
-                throw new IllegalArgumentException("Unknown message type: " + messageType);
+                throw new IllegalArgumentException("[LOG]: Unknown message type: " + messageType);
         }
     }
 
     private void handleCreateGroup(ChatClientHandler handler, String payload) throws Exception {
+        System.out.println("[LOG][STATE TO IDLE]");
+        handler.setClientState(Message.STATE_IDLE);
+
+        //currentState = Message.STATE_IDLE;
+
+
         String[] createParts = payload.split("\\|", -1);
         String creator = createParts[0];
         String groupName = createParts[1];
@@ -238,6 +302,9 @@ public class ChatServer {
     }
 
     private void handleHeartbeat(ChatClientHandler handler, String payload) {
+
+
+        //currentState = Message.STATE_IDLE;
         String username = getUsername(handler);
         if (username != null) {
             System.out.println("Received heartbeat from: " + username);
@@ -266,6 +333,10 @@ public class ChatServer {
     }
 
     private void handleAddMember(ChatClientHandler handler, String payload) throws Exception {
+        System.out.println("[LOG][STATE TO IDLE]");
+        handler.setClientState(Message.STATE_IDLE);
+
+        //currentState = Message.STATE_IDLE;
         String[] addParts = payload.split("\\|", -1);
         String groupName = addParts[1];
         String member = addParts[2];
@@ -278,6 +349,10 @@ public class ChatServer {
     }
 
     private void handleRemoveMember(ChatClientHandler handler, String payload) throws Exception {
+        handler.setClientState(Message.STATE_IDLE);
+
+        //currentState = Message.STATE_IDLE;
+
         String[] removeParts = payload.split("\\|", -1);
         String groupName = removeParts[1];
         String member = removeParts[2];

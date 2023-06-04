@@ -4,11 +4,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 public class Message {
-    public static final int CONNECT = 0;
+    public static final int CONNECT_REQUEST = 0;
     public static final int DISCONNECT = 1;
     public static final int SEND_MESSAGE = 2;
     public static final int CREATE_GROUP = 3;
-    public static final int AUTH_SUCCESS = 4;  // new message type for authentication success
+    public static final int AUTH_SUCCESS = 4;
     public static final int AUTH_FAILURE = 5;
     public static final int ADD_MEMBER = 6;
     public static final int REMOVE_MEMBER = 7;
@@ -18,9 +18,26 @@ public class Message {
     public static final int AUTH_REQUEST = 9;
     public static final int AUTH_ACK = 10;
     public static final int AUTH_NACK = 11;
+
+    public static final int CHANGE_STATE = 12;
     public static final int RECEIVE_MESSAGE = 13;
     public static final int GROUP_ACK = 15;
     public static final int GROUP_NACK = 16;
+
+    public static final int CONNECT_ACK = 17;
+
+    public static final int STATE_WAITING_FOR_CONNECTION = 18;
+    public static final int STATE_AUTHENTICATING = 19;
+    public static final int STATE_AUTHENTICATED = 20;
+    public static final int STATE_IDLE = 21;
+    public static final int STATE_SENDING_MESSAGE = 22;
+    public static final int STATE_CREATING_GROUP = 23;
+    public static final int STATE_DISCONNECTED = 24;
+
+
+
+
+
 
 
     private static final String AES = "AES";
@@ -32,6 +49,9 @@ public class Message {
     private int length;
     private int reserved;
     private String payload;
+
+    public static final int ERROR_VERSION_MISMATCH = 500;
+    public static final int CLOSE_CONNECTION = 501;
 
     public Message(int version, int type, int reserved, String payload) {
         this.version = version;
