@@ -45,12 +45,12 @@ After starting, the client will ask for the password on the console.
 - **Client and Server classes**: Entry point classes to start the client and server applications.
 ## Extra Credit Options
 
-**Robustness:** The chat protocol is designed with a state machine model to ensure correctness. The server maintains the state of each client and the transition between states is clearly defined. Additionally, the client and server implement robust error handling to deal with network failures or malformed messages.
-**Concurrent Server**: The server can handle multiple clients concurrently using a thread-per-client model.
-**Design**: The code is organized with clarity and maintainability in mind. Each class has a single responsibility and the methods are well-documented. Furthermore, the encryption of message payloads ensures that the chat is secure.
-**Using a Systems Programming Language**: This project was implemented using Java, a high-level language. Despite this, the implementation goes beyond the minimum requirements by providing features like AES encryption and multi-threading.
-**Automated testing code**: Junit test for Message.java and ChatClientHandler
-**Working with a cloud-based git-based system**: The project is managed and versioned using Git
+- **Robustness:** The chat protocol is designed with a state machine model to ensure correctness. The server maintains the state of each client and the transition between states is clearly defined. Additionally, the client and server implement robust error handling to deal with network failures or malformed messages.
+- **Concurrent Server**: The server can handle multiple clients concurrently using a thread-per-client model.
+- **Design**: The code is organized with clarity and maintainability in mind. Each class has a single responsibility and the methods are well-documented. Furthermore, the encryption of message payloads ensures that the chat is secure.
+- **Using a Systems Programming Language**: This project was implemented using Java, a high-level language. Despite this, the implementation goes beyond the minimum requirements by providing features like AES encryption and multi-threading.
+- **Automated testing code**: Junit test for Message.java and ChatClientHandler
+- **Working with a cloud-based git-based system**: The project is managed and versioned using Git
 To further understand the structure and functionality of the project, you can refer to the code comments and documentation within the project files.
 
 
