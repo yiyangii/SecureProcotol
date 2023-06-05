@@ -5,7 +5,7 @@ This project implements a chat protocol, client and server application using Jav
 ### Server Configuration
 The server can be started by running the Server class, the port number is set within this class:
 ```
-java Server.java localhost 12345 uesrname
+java Server.java 
 ```
 ```
 public static void main(String[] args) throws IOException {
