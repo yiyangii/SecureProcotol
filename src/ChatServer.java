@@ -14,13 +14,16 @@ import java.util.concurrent.TimeUnit;
 
 public class ChatServer {
     private ServerSocket serverSocket;
+    // Stores all active sessions (mapped by username) of chat clients
     private ConcurrentHashMap<String, ChatClientHandler> activeSessions;
+    // Stores all groups (mapped by group name) of chat clients
     private Map<String, List<ChatClientHandler>> groups;
+    // Stores last heartbeat time of all active users
 
     private Map<String, Long> lastHeartbeat;
 
 
-    //private int currentState;
+
     public ChatServer(int port) throws IOException {
         serverSocket = new ServerSocket(port);
         activeSessions = new ConcurrentHashMap<>();
@@ -34,7 +37,7 @@ public class ChatServer {
     }
 
 
-
+    // Method to start the server
     public void start() throws IOException {
         System.out.println("[LOG]:Waiting for clients...");
         while (true) {
@@ -58,6 +61,7 @@ public class ChatServer {
             }).start();
         }
     }
+    // Method to handle incoming messages from the chat clients
 
     public synchronized void handleMessage(ChatClientHandler handler, Message msg) throws Exception {
         if (msg.getVersion() != handler.getClientState() && msg.getType() != Message.HEARTBEAT) {
@@ -123,14 +127,17 @@ public class ChatServer {
                 throw new IllegalArgumentException("Unknown message type: " + msg.getType());
         }
     }
-
+    // Method to handle the change state request
+    // Client will send IDLE State Message before they get command from user
     private void handleChangeStateRequest(ChatClientHandler handler, String payload){
         handler.setClientState(Integer.valueOf(payload));
         System.out.println(handler.getClientState());
         System.out.println("[LOG][STATE change to" + Integer.valueOf(payload) +"]");
 
     }
+    // Method to handle the authentication request
     private void handleAuthRequest(ChatClientHandler handler, String payload){
+        //Split payload ex. username|password
         String[] credentials = payload.split("\\|", -1);
 
         if (credentials.length != 2) {
@@ -195,6 +202,8 @@ public class ChatServer {
     }
 
 
+
+    // Method to handle the connect request
     private void handleConnectRequest(ChatClientHandler handler, String payload) throws Exception {
         handler.setClientState(Message.STATE_AUTHENTICATING);
 
@@ -204,7 +213,7 @@ public class ChatServer {
         handler.sendMessage(connectAckMsg);
 
     }
-
+    // Method to handle the authentication success request
     private void handleAUTHSUCCESSRequest(ChatClientHandler handler, String payload) throws Exception {
         handler.setClientState(Message.STATE_IDLE);
 
@@ -213,7 +222,7 @@ public class ChatServer {
 
 
     }
-
+    // Method to handle the disconnect request
     private void handleDisconnect(ChatClientHandler handler) throws Exception {
         System.out.println("[LOG][STATE_WAITING_FOR_CONNECTION]");
 
@@ -234,7 +243,7 @@ public class ChatServer {
         }
 
     }
-
+    // Method to handle the send message request
     private void handleSendMessage(ChatClientHandler handler, String payload) throws Exception {
 
 
@@ -272,7 +281,7 @@ public class ChatServer {
                 throw new IllegalArgumentException("[LOG]: Unknown message type: " + messageType);
         }
     }
-
+    // Method to handle the create group request
     private void handleCreateGroup(ChatClientHandler handler, String payload) throws Exception {
         System.out.println("[LOG][STATE TO IDLE]");
         handler.setClientState(Message.STATE_IDLE);
@@ -331,7 +340,7 @@ public class ChatServer {
             }
         }
     }
-
+    //Add Member to group Map
     private void handleAddMember(ChatClientHandler handler, String payload) throws Exception {
         System.out.println("[LOG][STATE TO IDLE]");
         handler.setClientState(Message.STATE_IDLE);
@@ -347,7 +356,7 @@ public class ChatServer {
             System.out.println("[Add " + member + " to " + groupName + "]");
         }
     }
-
+    //Remove member from group Map
     private void handleRemoveMember(ChatClientHandler handler, String payload) throws Exception {
         handler.setClientState(Message.STATE_IDLE);
 

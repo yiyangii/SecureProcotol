@@ -8,6 +8,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+
+// ChatClient class for client-side operations
+
 public class ChatClient {
     private Socket socket;
     private BufferedReader in;
@@ -17,10 +20,11 @@ public class ChatClient {
     private int serverPort;
     private String username;
     private String password;
-
+    // Executor service for scheduled tasks like heartbeat
     private ScheduledExecutorService scheduler;
-
+    // The timestamp of the last received input
     private long lastInputTime;
+    // Flag for checking if the client is authenticated
     private volatile boolean isAuthenticated = false;
 
     public ChatClient(String serverAddress, int serverPort, String username, String password) {
@@ -29,11 +33,12 @@ public class ChatClient {
         this.username = username;
         this.password = password;
     }
-
+    // Method to start the connection to the server
     public void startConnection() throws Exception {
         socket = new Socket(serverAddress, serverPort);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         out = new PrintWriter(socket.getOutputStream(), true);
+        // Connecting with user credentials
 
         connect(username, password);
 
@@ -41,6 +46,8 @@ public class ChatClient {
         new Thread(() -> {
             while (true) {
                 try {
+                    // Receive message and handle it
+
                     Message msg = receiveMessage();
                     handleMessage(msg);
                 } catch (IOException e) {
@@ -91,6 +98,7 @@ public class ChatClient {
                 new Thread(this::startHeartbeat).start();
                 isHeartbeatOn = true;
             }
+            /* Code related to command processing, heartbeat and message handling */
 
             // If the user wants to disconnect
             if (command.equalsIgnoreCase("disconnect")) {
@@ -166,6 +174,7 @@ public class ChatClient {
         // Close the scanner
         scanner.close();
     }
+    // Method to send the message
 
     public void sendMessage(Message message) throws Exception {
         //System.out.println("[" + message + "]");
@@ -173,6 +182,7 @@ public class ChatClient {
         out.println(message.serialize());
         out.flush();
     }
+    // Method to receive the message
 
     public Message receiveMessage() throws IOException, Exception {
         String inputLine = in.readLine();
@@ -180,6 +190,7 @@ public class ChatClient {
         msg.decryptPayload();
         return msg;
     }
+    // Disconnect method to send disconnect request to the server
 
     public void stopConnection() {
         try {
@@ -195,6 +206,7 @@ public class ChatClient {
         Message disconnectMessage = new Message(Message.STATE_DISCONNECTED, Message.DISCONNECT, 0, username);
         sendMessage(disconnectMessage);
     }
+    // Method to start the heartbeat functionality
 
     public void startHeartbeat() {
         scheduler = Executors.newScheduledThreadPool(1);
@@ -210,47 +222,58 @@ public class ChatClient {
             }
         }, 0, 30, TimeUnit.SECONDS);
     }
+    // Method to stop the heartbeat functionality
 
     public void stopHeartbeat() {
         if (scheduler != null) {
             scheduler.shutdownNow();
         }
     }
+    // Method that updates the last input time when a user input is received
 
     public void userInputReceived() {
         lastInputTime = System.currentTimeMillis();
     }
+    // Method to send a message to a user
 
     public void sendMessageToUser(String receiver, String message) throws Exception {
         Message newMsg = new Message(Message.STATE_SENDING_MESSAGE, Message.SEND_MESSAGE, 0, username + "|private|" + receiver + "|" + message);
         sendMessage(newMsg);
     }
+    // Method to send a message to a group
 
     public void sendMessageToGroup(String groupName, String message) throws Exception {
         Message newMsg = new Message(Message.STATE_SENDING_MESSAGE, Message.SEND_MESSAGE, 0, username + "|group|" + groupName + "|" + message);
         sendMessage(newMsg);
     }
+    // Method to create a new group
 
     public void createGroup(String groupName) throws Exception {
         Message newMsg = new Message(Message.STATE_CREATING_GROUP, Message.CREATE_GROUP, 0, username + "|" + groupName);
         sendMessage(newMsg);
     }
+    // Method to add a member to a group
 
     public void addMemberToGroup(String groupName, String member) throws Exception {
         Message newMsg = new Message(Message.STATE_CREATING_GROUP, Message.ADD_MEMBER, 0, username + "|" + groupName + "|" + member);
         sendMessage(newMsg);
     }
+    // Method to remove a member from a group
 
     public void removeMemberFromGroup(String groupName, String member) throws Exception {
         Message newMsg = new Message(Message.STATE_CREATING_GROUP, Message.REMOVE_MEMBER, 0, username + "|" + groupName + "|" + member);
         sendMessage(newMsg);
     }
+    // Method to send connection request to the server
 
     public void connect(String username, String password) throws Exception {
         Message connectMessage = new Message(Message.STATE_WAITING_FOR_CONNECTION, Message.CONNECT_REQUEST, 0, username + "|" + password);
         //System.out.println("[LOG][Send CONNECT_REQUEST to Server|STATE_WAITING_FOR_CONNECTION]");
         sendMessage(connectMessage);
     }
+
+
+    // Method to handle incoming messages based on their type
 
     private void handleMessage(Message message) throws Exception {
         int messageType = message.getType();
@@ -276,18 +299,21 @@ public class ChatClient {
                 break;
         }
     }
+    // Method to handle connection acknowledgment
 
     private void handleConnectAck() throws Exception {
         Message authRequestMsg = new Message(Message.STATE_AUTHENTICATING, Message.AUTH_REQUEST, 0,username + "|" + password);
         //System.out.println("[LOG][AUTH_REQUEST SENT TO SERVER]");
         sendMessage(authRequestMsg);
     }
+    // Method to handle authentication failure
 
     private void handleAuthNack() throws Exception {
         String failureMessage = "[LOG][Authentication failed. Disconnecting]";
         System.out.println(failureMessage);
         throw new Exception(failureMessage);
     }
+    // Method to handle authentication success
 
     private void handleAuthAck() throws Exception {
         //System.out.println("[LOG][Authentication successfully]");

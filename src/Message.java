@@ -39,8 +39,10 @@ public class Message {
 
 
 
+    //the encryption algorithm to use
 
     private static final String AES = "AES";
+    //secret key for encryption. This should ideally be stored securely and not hard-coded.
     private static final byte[] keyValue =
             new byte[]{'T', 'h', 'i', 's', 'I', 's', 'A', '2', '5', '6', 'B', 'i', 't', 'L', 'o', 'n', 'g', 'S', 'e', 'c', 'r', 'e', 't', 'K', 'e', 'y', 'A', 'B', 'C', 'D', 'E', 'F'};
 
@@ -87,11 +89,11 @@ public class Message {
     public void setPayload(String payload) {
         this.payload = payload;
     }
-
+    // This function converts the message to a string format
     public String serialize() {
         return version + "|" + type + "|" + length + "|" + reserved + "|" + payload;
     }
-
+    // This function constructs a message from a string
     public static Message deserialize(String message) {
         String[] parts = message.split("\\|", 5);
         int version = Integer.parseInt(parts[0]);
@@ -105,7 +107,7 @@ public class Message {
     public Message createHeartbeatMessage(String username) {
         return new Message(1, HEARTBEAT, 0, username);
     }
-
+    // Encrypts the payload of the message
     public void encryptPayload() throws Exception {
         this.payload = encrypt(this.payload);
         this.length = this.payload.length();
@@ -115,7 +117,7 @@ public class Message {
     public void decryptPayload() throws Exception {
         this.payload = decrypt(this.payload);
     }
-
+    // Encrypts a string using the AES encryption algorithm
     private static String encrypt(String Data) throws Exception {
         Cipher c = Cipher.getInstance(AES);
         SecretKeySpec key = new SecretKeySpec(keyValue, AES);
