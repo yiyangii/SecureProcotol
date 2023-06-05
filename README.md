@@ -5,6 +5,9 @@ This project implements a chat protocol, client and server application using Jav
 ### Server Configuration
 The server can be started by running the Server class, the port number is set within this class:
 ```
+java Server.java localhost 12345 uesrname
+```
+```
 public static void main(String[] args) throws IOException {
     ChatServer server = new ChatServer(12345); // Here, the port number is set to 12345
     server.start();
@@ -16,7 +19,7 @@ The client requires command-line arguments, which are:
 - port: The port of the server to connect to.
 - username: The user's username.
 ```
-java Client localhost 12345 uesrname
+java Client.java localhost 12345 uesrname
 ```
 **Note** :  For a successful connection, you need to pre-configure the username and password. Here are the necessary steps to perform the setup:
 - Create or just open a text file named user.txt. This file should be created in the same directory where your ChatClient class resides.
